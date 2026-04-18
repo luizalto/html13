@@ -125,27 +125,20 @@ let velocidade=null
 async function medirVelocidade(){
   try{
     const start=performance.now()
-
     const res=await fetch("https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js",{
       cache:"no-store"
     })
-
     if(!res.body){
       track("Velocidade_Erro")
       return
     }
-
     const blob=await res.blob()
     const duration=(performance.now()-start)/1000
-
     const bits=blob.size*8
     velocidade=(bits/duration)/(1024*1024)
-
     const nivel=classificar(velocidade)
-
     track("Velocidade_N"+nivel)
     track("VelocidadeInternet",{mbps:velocidade.toFixed(2),nivel})
-
   }catch(e){
     track("Velocidade_Erro")
   }
@@ -157,12 +150,10 @@ async function medirBateria(){
     const bat = await navigator.getBattery()
     const pct = Math.round(bat.level * 100)
     const carregando = bat.charging ? "C1" : "C0"
-    // BatLow = menos de 20%, senão o nível arredondado para dezena
     const nivel = pct < 20 ? "BatLow" : "Bat" + Math.floor(pct / 10) * 10
     track("Bateria", { pct, carregando: bat.charging })
     return nivel + carregando
   }catch(e){
-    // Safari/iOS não suporta — retorna vazio silenciosamente
     return ""
   }
 }
@@ -179,21 +170,14 @@ function medirTema(){
 function medirTela(){
   const w = window.screen.width
   const dpr = window.devicePixelRatio || 1
-
-  // Tamanho
   let scrTag
-  if(w < 380)      scrTag = "ScrXS"   // celular muito pequeno
-  else if(w < 480) scrTag = "ScrSm"   // celular normal
-  else if(w < 768) scrTag = "ScrMd"   // celular grande / tablet pequeno
-  else if(w < 1024)scrTag = "ScrLg"   // tablet
-  else             scrTag = "ScrXL"   // desktop
-
-  // Pixel ratio — tela retina = celular top (Dpr2 ou Dpr3)
+  if(w < 380)       scrTag = "ScrXS"
+  else if(w < 480)  scrTag = "ScrSm"
+  else if(w < 768)  scrTag = "ScrMd"
+  else if(w < 1024) scrTag = "ScrLg"
+  else              scrTag = "ScrXL"
   const dprTag = "Dpr" + Math.round(dpr)
-
-  // Orientação
   const ori = window.screen.height > window.screen.width ? "Pt" : "Ls"
-
   track("Tela", { largura: w, dpr, orientacao: ori })
   return scrTag + dprTag + ori
 }
@@ -202,37 +186,183 @@ function medirTela(){
 function medirOrigem(){
   const ref = document.referrer || ""
   const ua  = navigator.userAgent || ""
-
-  // Detecta browser embutido de apps
   let tag
-  if(ua.includes("Instagram"))             tag = "RefIgApp"  // browser do Instagram
-  else if(ua.includes("FBAN") || ua.includes("FBAV")) tag = "RefFbApp" // browser do Facebook
-  else if(ua.includes("TikTok"))           tag = "RefTkApp"  // browser do TikTok
-  else if(ref.includes("instagram.com"))   tag = "RefIg"
-  else if(ref.includes("facebook.com"))    tag = "RefFb"
-  else if(ref.includes("tiktok.com"))      tag = "RefTk"
-  else if(ref.includes("youtube.com"))     tag = "RefYt"
-  else if(ref.includes("google.com"))      tag = "RefGg"
-  else if(ref.includes("pinterest.com"))   tag = "RefPi"
-  else if(ref === "")                      tag = "RefDir"     // acesso direto / link salvo
-  else                                     tag = "RefOr"      // outra origem
-
+  if(ua.includes("Instagram"))                        tag = "RefIgApp"
+  else if(ua.includes("FBAN") || ua.includes("FBAV")) tag = "RefFbApp"
+  else if(ua.includes("TikTok"))                      tag = "RefTkApp"
+  else if(ref.includes("instagram.com"))              tag = "RefIg"
+  else if(ref.includes("facebook.com"))               tag = "RefFb"
+  else if(ref.includes("tiktok.com"))                 tag = "RefTk"
+  else if(ref.includes("youtube.com"))                tag = "RefYt"
+  else if(ref.includes("google.com"))                 tag = "RefGg"
+  else if(ref.includes("pinterest.com"))              tag = "RefPi"
+  else if(ref === "")                                 tag = "RefDir"
+  else                                                tag = "RefOr"
   track("Origem", { referrer: ref.slice(0,100), ua_snippet: ua.slice(0,80) })
   return tag
+}
+
+// ================= RAM =================
+function medirRAM(){
+  try{
+    // navigator.deviceMemory retorna 0.25 / 0.5 / 1 / 2 / 4 / 8 GB
+    const ram = navigator.deviceMemory
+    if(!ram) return ""
+    // Classifica: baixo (<=1GB), médio (2-4GB), alto (>=8GB)
+    let tag
+    if(ram <= 1)      tag = "Ram1"   // celular básico
+    else if(ram <= 2) tag = "Ram2"   // intermediário
+    else if(ram <= 4) tag = "Ram4"   // bom
+    else              tag = "Ram8"   // top de linha
+    track("RAM", { gb: ram })
+    return tag
+  }catch(e){
+    return ""
+  }
+}
+
+// ================= FONE DE OUVIDO =================
+async function medirFone(){
+  try{
+    const devices = await navigator.mediaDevices.enumerateDevices()
+    // Filtra saídas de áudio que não sejam o alto-falante padrão do dispositivo
+    const audioOutputs = devices.filter(d => d.kind === "audiooutput")
+    // Se houver mais de 1 saída de áudio, provavelmente tem fone conectado
+    // (o padrão sempre tem pelo menos 1: o alto-falante interno)
+    const temFone = audioOutputs.length > 1
+    const tag = temFone ? "FoneY" : "FoneN"
+    track("Fone", { dispositivos: audioOutputs.length, temFone })
+    return tag
+  }catch(e){
+    return ""
+  }
+}
+
+// ================= ABAS (visibilidade) =================
+function medirAbas(){
+  // Conta quantas vezes o usuário saiu da aba e voltou durante os ~100ms de coleta
+  // Indica se está alternando entre abas (comparando preços) ou focado
+  let trocasDeAba = 0
+  const handler = () => {
+    if(document.visibilityState === "hidden") trocasDeAba++
+  }
+  document.addEventListener("visibilitychange", handler)
+  // Remove o listener depois — vai ser lido no momento do redirect
+  setTimeout(() => document.removeEventListener("visibilitychange", handler), 5000)
+
+  // Retorna função que lê o valor final na hora do redirect
+  return () => {
+    let tag
+    if(trocasDeAba === 0)      tag = "TabF"   // focado — não saiu da aba
+    else if(trocasDeAba <= 2)  tag = "TabP"   // saiu pouco (1-2x)
+    else                       tag = "TabM"   // saiu muito — comparando preços
+
+    track("Abas", { trocas: trocasDeAba })
+    return tag
+  }
+}
+
+// ================= GIROSCÓPIO / TREMOR / MOVIMENTO =================
+function medirMovimento(){
+  return new Promise(resolve => {
+
+    let leituras = []
+    let autorizado = false
+
+    function processar(event){
+      const acc = event.accelerationIncludingGravity
+      if(!acc) return
+      leituras.push({
+        x: Math.abs(acc.x || 0),
+        y: Math.abs(acc.y || 0),
+        z: Math.abs(acc.z || 0)
+      })
+    }
+
+    function calcular(){
+      window.removeEventListener("devicemotion", processar)
+
+      if(leituras.length < 3){
+        resolve("")
+        return
+      }
+
+      // Variação entre leituras — alta variação = movimento / tremor
+      const variacoes = leituras.slice(1).map((l, i) => {
+        const prev = leituras[i]
+        return Math.abs(l.x - prev.x) + Math.abs(l.y - prev.y) + Math.abs(l.z - prev.z)
+      })
+
+      const mediaVariacao = variacoes.reduce((a,b)=>a+b,0) / variacoes.length
+
+      // Classifica o estado físico
+      let estadoTag
+      if(mediaVariacao < 0.3)       estadoTag = "MvStop"   // parado / deitado
+      else if(mediaVariacao < 1.0)  estadoTag = "MvSlow"   // levemente em movimento
+      else if(mediaVariacao < 3.0)  estadoTag = "MvMove"   // caminhando
+      else                          estadoTag = "MvFast"   // correndo / transporte
+
+      // Tremor: variações altas e rápidas nas 3 leituras = nervosismo / mão tremendo
+      const tremorX = Math.max(...leituras.map(l=>l.x)) - Math.min(...leituras.map(l=>l.x))
+      const tremorY = Math.max(...leituras.map(l=>l.y)) - Math.min(...leituras.map(l=>l.y))
+      const tremorTotal = tremorX + tremorY
+      const tremTag = tremorTotal > 2 ? "TrmY" : "TrmN"
+
+      track("Movimento", {
+        mediaVariacao: mediaVariacao.toFixed(2),
+        tremorTotal: tremorTotal.toFixed(2),
+        estado: estadoTag
+      })
+
+      resolve(estadoTag + tremTag)
+    }
+
+    // iOS 13+ exige permissão explícita para DeviceMotion
+    if(typeof DeviceMotionEvent !== "undefined" &&
+       typeof DeviceMotionEvent.requestPermission === "function"){
+      DeviceMotionEvent.requestPermission()
+        .then(perm => {
+          if(perm === "granted"){
+            autorizado = true
+            window.addEventListener("devicemotion", processar)
+            setTimeout(calcular, 600)
+          } else {
+            resolve("")
+          }
+        })
+        .catch(() => resolve(""))
+    } else if(typeof DeviceMotionEvent !== "undefined"){
+      // Android e navegadores sem restrição de permissão
+      window.addEventListener("devicemotion", processar)
+      setTimeout(calcular, 600)
+    } else {
+      resolve("") // desktop — sem acelerômetro
+    }
+
+  })
 }
 
 // ================= REDIRECT =================
 async function iniciar(){
 
-  // Coleta tudo em paralelo onde possível
-  const [batTag] = await Promise.all([
+  // Inicia monitoramento de abas imediatamente (precisa ficar ouvindo)
+  const lerAbas = medirAbas()
+
+  // Coleta tudo em paralelo
+  const [batTag, movTag] = await Promise.all([
     medirBateria(),
-    medirVelocidade()   // popula a variável `velocidade`
-  ])
+    medirVelocidade(),   // popula `velocidade`
+    medirMovimento()
+  ]).then(r => [r[0], r[2]])
 
   const temaTag   = medirTema()
   const telaTag   = medirTela()
   const origemTag = medirOrigem()
+  const ramTag    = medirRAM()
+  const abasTag   = lerAbas()
+
+  // Fone: rápido mas assíncrono
+  const foneTag = await medirFone()
 
   setTimeout(()=>{
 
@@ -243,18 +373,23 @@ async function iniciar(){
 
     const baseUC = UC.replace(/[^a-zA-Z0-9]/g,"")
 
-    // SubID final com todos os sinais
+    // SubID final com TODOS os sinais
     const finalUC = (
-      baseUC    +   // ex: N33T11ClickShopeeRight
-      tempoClick+   // ex: S4a5
-      velTag    +   // ex: N6
-      batTag    +   // ex: Bat80C0  ou BatLowC1
-      temaTag   +   // ex: DkM ou LtM
-      telaTag   +   // ex: ScrSmDpr3Pt
-      origemTag     // ex: RefIgApp
+      baseUC      +   // ex: N33T11ClickShopeeRight
+      tempoClick  +   // ex: S4a5        — tempo na página
+      velTag      +   // ex: N6          — velocidade
+      batTag      +   // ex: Bat80C1     — bateria + carregando
+      temaTag     +   // ex: DkM         — dark/light mode
+      telaTag     +   // ex: ScrSmDpr3Pt — tela + pixel ratio + orientação
+      origemTag   +   // ex: RefIgApp    — de onde veio
+      ramTag      +   // ex: Ram4        — memória RAM
+      foneTag     +   // ex: FoneY       — fone conectado
+      abasTag     +   // ex: TabF        — comportamento de abas
+      movTag          // ex: MvStopTrmN  — movimento + tremor
     ).replace(/[^a-zA-Z0-9]/g,"")
 
-    // Exemplo final: N33T11ClickShopeeRightS4a5N6Bat80C0DkMScrSmDpr3PtRefIgApp
+    // Exemplo completo:
+    // N33T11ClickShopeeRightS4a5N6Bat80C1DkMScrSmDpr3PtRefIgAppRam4FoneYTabFMvStopTrmN
 
     const url=`https://shopee-utm-tracker.onrender.com/?link=${encodeURIComponent(LINK)}&uc=${finalUC}`
 
