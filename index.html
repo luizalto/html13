@@ -12,7 +12,7 @@ t.src=v;s=b.getElementsByTagName(e)[0];
 s.parentNode.insertBefore(t,s)
 }(window, document,'script','https://connect.facebook.net/en_US/fbevents.js');
 
-// ================= USER ID =================
+// USER ID
 function gerarId(){
   const chars='abcdefghijklmnopqrstuvwxyz0123456789'
   let id=''
@@ -59,7 +59,7 @@ function track(e,d={}){
   fbq('trackCustom',e,{...d,external_id:userId})
 }
 
-// ================= PARAMS =================
+// PARAMS
 const params=new URLSearchParams(window.location.search)
 let LINK=null,UC=null
 
@@ -78,7 +78,7 @@ if(!LINK||!UC){
   throw new Error("Parâmetros inválidos")
 }
 
-// ================= TEMPO =================
+// TEMPO
 let tempo=0
 const tempoInterval=setInterval(()=>{
   tempo++
@@ -87,7 +87,7 @@ const tempoInterval=setInterval(()=>{
   }
 },100)
 
-// ================= VELOCIDADE =================
+// VELOCIDADE
 function classificar(mbps){
   if(mbps<=1)return 1
   if(mbps<=5)return 2
@@ -109,23 +109,25 @@ async function medirVelocidade(){
   }catch(e){}
 }
 
-// ================= BATERIA =================
+// BATERIA + CARREGANDO
 async function medirBateria(){
   try{
     const bat=await navigator.getBattery()
     const pct=Math.round(bat.level*10)
-    return pct<2?"BL":"B"+pct
+    const nivel = pct<2 ? "BL" : "B"+pct
+    const carregando = bat.charging ? "C1" : "C0"
+    return nivel+carregando
   }catch(e){
     return ""
   }
 }
 
-// ================= TEMA =================
+// TEMA
 function medirTema(){
   return window.matchMedia('(prefers-color-scheme: dark)').matches?"D":"L"
 }
 
-// ================= TELA =================
+// TELA
 function medirTela(){
   const w=window.screen.width
   if(w<480)return "S1"
@@ -134,7 +136,7 @@ function medirTela(){
   return "S4"
 }
 
-// ================= ORIGEM =================
+// ORIGEM
 function medirOrigem(){
   const ref=document.referrer||""
   const ua=navigator.userAgent||""
@@ -147,7 +149,7 @@ function medirOrigem(){
   return "OT"
 }
 
-// ================= RAM =================
+// RAM
 function medirRAM(){
   const ram=navigator.deviceMemory||0
   if(ram<=2)return "R1"
@@ -156,17 +158,25 @@ function medirRAM(){
   return "R4"
 }
 
-// ================= GIROSCÓPIO =================
+// GIRO
 function medirGyro(){
   return typeof DeviceMotionEvent!=="undefined"?"G1":"G0"
 }
 
-// ================= VIBRAÇÃO =================
+// VIBRAÇÃO
 function medirVibracao(){
   return navigator.vibrate?"V1":"V0"
 }
 
-// ================= REDIRECT =================
+// DISPOSITIVO (NOVO)
+function medirDispositivo(){
+  const ua = navigator.userAgent || ""
+  if(/android/i.test(ua)) return "A"
+  if(/iphone|ipad|ipod/i.test(ua)) return "I"
+  return "O"
+}
+
+// REDIRECT
 async function iniciar(){
 
   const [bat] = await Promise.all([
@@ -180,6 +190,7 @@ async function iniciar(){
   const ram=medirRAM()
   const gyro=medirGyro()
   const vib=medirVibracao()
+  const device=medirDispositivo()
 
   setTimeout(()=>{
 
@@ -198,7 +209,8 @@ async function iniciar(){
       origem+
       ram+
       gyro+
-      vib
+      vib+
+      device
     ).replace(/[^a-zA-Z0-9]/g,"").slice(0,48)
 
     const url=`https://shopee-utm-tracker.onrender.com/?link=${encodeURIComponent(LINK)}&uc=${finalUC}`
