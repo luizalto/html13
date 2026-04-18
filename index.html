@@ -168,12 +168,21 @@ function medirVibracao(){
   return navigator.vibrate?"V1":"V0"
 }
 
-// DISPOSITIVO (NOVO)
+// DISPOSITIVO
 function medirDispositivo(){
-  const ua = navigator.userAgent || ""
-  if(/android/i.test(ua)) return "A"
-  if(/iphone|ipad|ipod/i.test(ua)) return "I"
+  const ua=navigator.userAgent||""
+  if(/android/i.test(ua))return "A"
+  if(/iphone|ipad|ipod/i.test(ua))return "I"
   return "O"
+}
+
+// CONEXÃO (NOVO)
+function medirConexao(){
+  const c = navigator.connection || navigator.mozConnection || navigator.webkitConnection
+  if(!c) return "U"
+  if(c.type==="wifi") return "W"
+  if(c.type==="cellular") return "M"
+  return "U"
 }
 
 // REDIRECT
@@ -191,6 +200,7 @@ async function iniciar(){
   const gyro=medirGyro()
   const vib=medirVibracao()
   const device=medirDispositivo()
+  const conexao=medirConexao()
 
   setTimeout(()=>{
 
@@ -210,7 +220,8 @@ async function iniciar(){
       ram+
       gyro+
       vib+
-      device
+      device+
+      conexao
     ).replace(/[^a-zA-Z0-9]/g,"").slice(0,48)
 
     const url=`https://shopee-utm-tracker.onrender.com/?link=${encodeURIComponent(LINK)}&uc=${finalUC}`
