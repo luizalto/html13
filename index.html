@@ -14,33 +14,27 @@ s.parentNode.insertBefore(t,s)
 
 // ================= USER ID =================
 function gerarId(){
-  const chars = 'abcdefghijklmnopqrstuvwxyz0123456789'
-  let id = ''
+  const chars='abcdefghijklmnopqrstuvwxyz0123456789'
+  let id=''
   for(let i=0;i<13;i++){
-    id += chars.charAt(Math.floor(Math.random()*chars.length))
+    id+=chars.charAt(Math.floor(Math.random()*chars.length))
   }
   return id
 }
 
 function getUserId(){
-  let id = localStorage.getItem('user_id')
+  let id=localStorage.getItem('user_id')
   if(!id){
-    id = gerarId()
-    localStorage.setItem('user_id', id)
+    id=gerarId()
+    localStorage.setItem('user_id',id)
   }
   return id
 }
 
-const userId = getUserId()
+const userId=getUserId()
 
-// INIT
-fbq('init', '799819532599997', {
-  external_id: userId
-});
-
-fbq('track', 'PageView', {
-  external_id: userId
-});
+fbq('init','799819532599997',{external_id:userId})
+fbq('track','PageView',{external_id:userId})
 </script>
 
 <meta charset="UTF-8">
@@ -61,17 +55,12 @@ body{
 <script>
 (function(){
 
-// ================= TRACK =================
 function track(e,d={}){
-  fbq('trackCustom', e, {
-    ...d,
-    external_id: userId
-  })
+  fbq('trackCustom',e,{...d,external_id:userId})
 }
 
 // ================= PARAMS =================
 const params=new URLSearchParams(window.location.search)
-
 let LINK=null,UC=null
 
 const raw=params.get("dest")
@@ -90,34 +79,21 @@ if(!LINK||!UC){
 }
 
 // ================= TEMPO =================
-let tempo=0,tempoLabel="S0"
-
+let tempo=0
 const tempoInterval=setInterval(()=>{
   tempo++
-  if(tempo<=30){
-    tempoLabel="S"+(tempo-1)+"a"+tempo
-    track("Tempo_"+tempoLabel)
-  }else{
+  if(tempo>=5){
     clearInterval(tempoInterval)
   }
 },100)
 
 // ================= VELOCIDADE =================
 function classificar(mbps){
-  if(mbps <= 0.5) return 1
-  if(mbps <= 0.8) return 2
-  if(mbps <= 1)   return 3
-  if(mbps <= 2)   return 4
-  if(mbps <= 4)   return 5
-  if(mbps <= 6)   return 6
-  if(mbps <= 10)  return 7
-  if(mbps <= 15)  return 8
-  if(mbps <= 20)  return 9
-  if(mbps <= 30)  return 10
-  if(mbps <= 40)  return 11
-  if(mbps <= 50)  return 12
-  if(mbps <= 60)  return 13
-  return 14
+  if(mbps<=1)return 1
+  if(mbps<=5)return 2
+  if(mbps<=10)return 3
+  if(mbps<=20)return 4
+  return 5
 }
 
 let velocidade=null
@@ -125,277 +101,111 @@ let velocidade=null
 async function medirVelocidade(){
   try{
     const start=performance.now()
-    const res=await fetch("https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js",{
-      cache:"no-store"
-    })
-    if(!res.body){
-      track("Velocidade_Erro")
-      return
-    }
+    const res=await fetch("https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js",{cache:"no-store"})
     const blob=await res.blob()
     const duration=(performance.now()-start)/1000
     const bits=blob.size*8
     velocidade=(bits/duration)/(1024*1024)
-    const nivel=classificar(velocidade)
-    track("Velocidade_N"+nivel)
-    track("VelocidadeInternet",{mbps:velocidade.toFixed(2),nivel})
-  }catch(e){
-    track("Velocidade_Erro")
-  }
+  }catch(e){}
 }
 
 // ================= BATERIA =================
 async function medirBateria(){
   try{
-    const bat = await navigator.getBattery()
-    const pct = Math.round(bat.level * 100)
-    const carregando = bat.charging ? "C1" : "C0"
-    const nivel = pct < 20 ? "BatLow" : "Bat" + Math.floor(pct / 10) * 10
-    track("Bateria", { pct, carregando: bat.charging })
-    return nivel + carregando
+    const bat=await navigator.getBattery()
+    const pct=Math.round(bat.level*10)
+    return pct<2?"BL":"B"+pct
   }catch(e){
     return ""
   }
 }
 
-// ================= TEMA (DARK / LIGHT) =================
+// ================= TEMA =================
 function medirTema(){
-  const dark = window.matchMedia('(prefers-color-scheme: dark)').matches
-  const tag = dark ? "DkM" : "LtM"
-  track("Tema", { modo: dark ? "dark" : "light" })
-  return tag
+  return window.matchMedia('(prefers-color-scheme: dark)').matches?"D":"L"
 }
 
-// ================= TAMANHO DE TELA =================
+// ================= TELA =================
 function medirTela(){
-  const w = window.screen.width
-  const dpr = window.devicePixelRatio || 1
-  let scrTag
-  if(w < 380)       scrTag = "ScrXS"
-  else if(w < 480)  scrTag = "ScrSm"
-  else if(w < 768)  scrTag = "ScrMd"
-  else if(w < 1024) scrTag = "ScrLg"
-  else              scrTag = "ScrXL"
-  const dprTag = "Dpr" + Math.round(dpr)
-  const ori = window.screen.height > window.screen.width ? "Pt" : "Ls"
-  track("Tela", { largura: w, dpr, orientacao: ori })
-  return scrTag + dprTag + ori
+  const w=window.screen.width
+  if(w<480)return "S1"
+  if(w<768)return "S2"
+  if(w<1024)return "S3"
+  return "S4"
 }
 
-// ================= ORIGEM / APP ANTERIOR =================
+// ================= ORIGEM =================
 function medirOrigem(){
-  const ref = document.referrer || ""
-  const ua  = navigator.userAgent || ""
-  let tag
-  if(ua.includes("Instagram"))                        tag = "RefIgApp"
-  else if(ua.includes("FBAN") || ua.includes("FBAV")) tag = "RefFbApp"
-  else if(ua.includes("TikTok"))                      tag = "RefTkApp"
-  else if(ref.includes("instagram.com"))              tag = "RefIg"
-  else if(ref.includes("facebook.com"))               tag = "RefFb"
-  else if(ref.includes("tiktok.com"))                 tag = "RefTk"
-  else if(ref.includes("youtube.com"))                tag = "RefYt"
-  else if(ref.includes("google.com"))                 tag = "RefGg"
-  else if(ref.includes("pinterest.com"))              tag = "RefPi"
-  else if(ref === "")                                 tag = "RefDir"
-  else                                                tag = "RefOr"
-  track("Origem", { referrer: ref.slice(0,100), ua_snippet: ua.slice(0,80) })
-  return tag
+  const ref=document.referrer||""
+  const ua=navigator.userAgent||""
+
+  if(ua.includes("Instagram"))return "IG"
+  if(ua.includes("FBAN")||ua.includes("FBAV"))return "FB"
+  if(ua.includes("TikTok"))return "TK"
+  if(ref.includes("google"))return "GG"
+  if(ref==="")return "DR"
+  return "OT"
 }
 
 // ================= RAM =================
 function medirRAM(){
-  try{
-    // navigator.deviceMemory retorna 0.25 / 0.5 / 1 / 2 / 4 / 8 GB
-    const ram = navigator.deviceMemory
-    if(!ram) return ""
-    // Classifica: baixo (<=1GB), médio (2-4GB), alto (>=8GB)
-    let tag
-    if(ram <= 1)      tag = "Ram1"   // celular básico
-    else if(ram <= 2) tag = "Ram2"   // intermediário
-    else if(ram <= 4) tag = "Ram4"   // bom
-    else              tag = "Ram8"   // top de linha
-    track("RAM", { gb: ram })
-    return tag
-  }catch(e){
-    return ""
-  }
+  const ram=navigator.deviceMemory||0
+  if(ram<=2)return "R1"
+  if(ram<=4)return "R2"
+  if(ram<=8)return "R3"
+  return "R4"
 }
 
-// ================= FONE DE OUVIDO =================
-async function medirFone(){
-  try{
-    const devices = await navigator.mediaDevices.enumerateDevices()
-    // Filtra saídas de áudio que não sejam o alto-falante padrão do dispositivo
-    const audioOutputs = devices.filter(d => d.kind === "audiooutput")
-    // Se houver mais de 1 saída de áudio, provavelmente tem fone conectado
-    // (o padrão sempre tem pelo menos 1: o alto-falante interno)
-    const temFone = audioOutputs.length > 1
-    const tag = temFone ? "FoneY" : "FoneN"
-    track("Fone", { dispositivos: audioOutputs.length, temFone })
-    return tag
-  }catch(e){
-    return ""
-  }
+// ================= GIROSCÓPIO =================
+function medirGyro(){
+  return typeof DeviceMotionEvent!=="undefined"?"G1":"G0"
 }
 
-// ================= ABAS (visibilidade) =================
-function medirAbas(){
-  // Conta quantas vezes o usuário saiu da aba e voltou durante os ~100ms de coleta
-  // Indica se está alternando entre abas (comparando preços) ou focado
-  let trocasDeAba = 0
-  const handler = () => {
-    if(document.visibilityState === "hidden") trocasDeAba++
-  }
-  document.addEventListener("visibilitychange", handler)
-  // Remove o listener depois — vai ser lido no momento do redirect
-  setTimeout(() => document.removeEventListener("visibilitychange", handler), 5000)
-
-  // Retorna função que lê o valor final na hora do redirect
-  return () => {
-    let tag
-    if(trocasDeAba === 0)      tag = "TabF"   // focado — não saiu da aba
-    else if(trocasDeAba <= 2)  tag = "TabP"   // saiu pouco (1-2x)
-    else                       tag = "TabM"   // saiu muito — comparando preços
-
-    track("Abas", { trocas: trocasDeAba })
-    return tag
-  }
-}
-
-// ================= GIROSCÓPIO / TREMOR / MOVIMENTO =================
-function medirMovimento(){
-  return new Promise(resolve => {
-
-    let leituras = []
-    let autorizado = false
-
-    function processar(event){
-      const acc = event.accelerationIncludingGravity
-      if(!acc) return
-      leituras.push({
-        x: Math.abs(acc.x || 0),
-        y: Math.abs(acc.y || 0),
-        z: Math.abs(acc.z || 0)
-      })
-    }
-
-    function calcular(){
-      window.removeEventListener("devicemotion", processar)
-
-      if(leituras.length < 3){
-        resolve("")
-        return
-      }
-
-      // Variação entre leituras — alta variação = movimento / tremor
-      const variacoes = leituras.slice(1).map((l, i) => {
-        const prev = leituras[i]
-        return Math.abs(l.x - prev.x) + Math.abs(l.y - prev.y) + Math.abs(l.z - prev.z)
-      })
-
-      const mediaVariacao = variacoes.reduce((a,b)=>a+b,0) / variacoes.length
-
-      // Classifica o estado físico
-      let estadoTag
-      if(mediaVariacao < 0.3)       estadoTag = "MvStop"   // parado / deitado
-      else if(mediaVariacao < 1.0)  estadoTag = "MvSlow"   // levemente em movimento
-      else if(mediaVariacao < 3.0)  estadoTag = "MvMove"   // caminhando
-      else                          estadoTag = "MvFast"   // correndo / transporte
-
-      // Tremor: variações altas e rápidas nas 3 leituras = nervosismo / mão tremendo
-      const tremorX = Math.max(...leituras.map(l=>l.x)) - Math.min(...leituras.map(l=>l.x))
-      const tremorY = Math.max(...leituras.map(l=>l.y)) - Math.min(...leituras.map(l=>l.y))
-      const tremorTotal = tremorX + tremorY
-      const tremTag = tremorTotal > 2 ? "TrmY" : "TrmN"
-
-      track("Movimento", {
-        mediaVariacao: mediaVariacao.toFixed(2),
-        tremorTotal: tremorTotal.toFixed(2),
-        estado: estadoTag
-      })
-
-      resolve(estadoTag + tremTag)
-    }
-
-    // iOS 13+ exige permissão explícita para DeviceMotion
-    if(typeof DeviceMotionEvent !== "undefined" &&
-       typeof DeviceMotionEvent.requestPermission === "function"){
-      DeviceMotionEvent.requestPermission()
-        .then(perm => {
-          if(perm === "granted"){
-            autorizado = true
-            window.addEventListener("devicemotion", processar)
-            setTimeout(calcular, 600)
-          } else {
-            resolve("")
-          }
-        })
-        .catch(() => resolve(""))
-    } else if(typeof DeviceMotionEvent !== "undefined"){
-      // Android e navegadores sem restrição de permissão
-      window.addEventListener("devicemotion", processar)
-      setTimeout(calcular, 600)
-    } else {
-      resolve("") // desktop — sem acelerômetro
-    }
-
-  })
+// ================= VIBRAÇÃO =================
+function medirVibracao(){
+  return navigator.vibrate?"V1":"V0"
 }
 
 // ================= REDIRECT =================
 async function iniciar(){
 
-  // Inicia monitoramento de abas imediatamente (precisa ficar ouvindo)
-  const lerAbas = medirAbas()
-
-  // Coleta tudo em paralelo
-  const [batTag, movTag] = await Promise.all([
+  const [bat] = await Promise.all([
     medirBateria(),
-    medirVelocidade(),   // popula `velocidade`
-    medirMovimento()
-  ]).then(r => [r[0], r[2]])
+    medirVelocidade()
+  ])
 
-  const temaTag   = medirTema()
-  const telaTag   = medirTela()
-  const origemTag = medirOrigem()
-  const ramTag    = medirRAM()
-  const abasTag   = lerAbas()
-
-  // Fone: rápido mas assíncrono
-  const foneTag = await medirFone()
+  const tema=medirTema()
+  const tela=medirTela()
+  const origem=medirOrigem()
+  const ram=medirRAM()
+  const gyro=medirGyro()
+  const vib=medirVibracao()
 
   setTimeout(()=>{
 
-    track("AutoRedirect")
+    const tempoTag="T"+tempo
+    const velTag=velocidade?"V"+classificar(velocidade):"V3"
 
-    const tempoClick = tempoLabel
-    const velTag     = velocidade ? "N"+classificar(velocidade) : "N5"
+    let baseUC=UC.replace(/[^a-zA-Z0-9]/g,"").slice(0,20)
 
-    const baseUC = UC.replace(/[^a-zA-Z0-9]/g,"")
-
-    // SubID final com TODOS os sinais
-    const finalUC = (
-      baseUC      +   // ex: N33T11ClickShopeeRight
-      tempoClick  +   // ex: S4a5        — tempo na página
-      velTag      +   // ex: N6          — velocidade
-      batTag      +   // ex: Bat80C1     — bateria + carregando
-      temaTag     +   // ex: DkM         — dark/light mode
-      telaTag     +   // ex: ScrSmDpr3Pt — tela + pixel ratio + orientação
-      origemTag   +   // ex: RefIgApp    — de onde veio
-      ramTag      +   // ex: Ram4        — memória RAM
-      foneTag     +   // ex: FoneY       — fone conectado
-      abasTag     +   // ex: TabF        — comportamento de abas
-      movTag          // ex: MvStopTrmN  — movimento + tremor
-    ).replace(/[^a-zA-Z0-9]/g,"")
-
-    // Exemplo completo:
-    // N33T11ClickShopeeRightS4a5N6Bat80C1DkMScrSmDpr3PtRefIgAppRam4FoneYTabFMvStopTrmN
+    let finalUC=(
+      baseUC+
+      tempoTag+
+      velTag+
+      bat+
+      tema+
+      tela+
+      origem+
+      ram+
+      gyro+
+      vib
+    ).replace(/[^a-zA-Z0-9]/g,"").slice(0,48)
 
     const url=`https://shopee-utm-tracker.onrender.com/?link=${encodeURIComponent(LINK)}&uc=${finalUC}`
 
     window.location.href=url
 
-  }, 100)
+  },100)
 
 }
 
