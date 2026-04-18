@@ -106,17 +106,17 @@ const tempoInterval=setInterval(()=>{
 function classificar(mbps){
   if(mbps <= 0.5) return 1
   if(mbps <= 0.8) return 2
-  if(mbps <= 1) return 3
-  if(mbps <= 2) return 4
-  if(mbps <= 4) return 5
-  if(mbps <= 6) return 6
-  if(mbps <= 10) return 7
-  if(mbps <= 15) return 8
-  if(mbps <= 20) return 9
-  if(mbps <= 30) return 10
-  if(mbps <= 40) return 11
-  if(mbps <= 50) return 12
-  if(mbps <= 60) return 13
+  if(mbps <= 1)   return 3
+  if(mbps <= 2)   return 4
+  if(mbps <= 4)   return 5
+  if(mbps <= 6)   return 6
+  if(mbps <= 10)  return 7
+  if(mbps <= 15)  return 8
+  if(mbps <= 20)  return 9
+  if(mbps <= 30)  return 10
+  if(mbps <= 40)  return 11
+  if(mbps <= 50)  return 12
+  if(mbps <= 60)  return 13
   return 14
 }
 
@@ -151,26 +151,110 @@ async function medirVelocidade(){
   }
 }
 
+// ================= BATERIA =================
+async function medirBateria(){
+  try{
+    const bat = await navigator.getBattery()
+    const pct = Math.round(bat.level * 100)
+    const carregando = bat.charging ? "C1" : "C0"
+    // BatLow = menos de 20%, senão o nível arredondado para dezena
+    const nivel = pct < 20 ? "BatLow" : "Bat" + Math.floor(pct / 10) * 10
+    track("Bateria", { pct, carregando: bat.charging })
+    return nivel + carregando
+  }catch(e){
+    // Safari/iOS não suporta — retorna vazio silenciosamente
+    return ""
+  }
+}
+
+// ================= TEMA (DARK / LIGHT) =================
+function medirTema(){
+  const dark = window.matchMedia('(prefers-color-scheme: dark)').matches
+  const tag = dark ? "DkM" : "LtM"
+  track("Tema", { modo: dark ? "dark" : "light" })
+  return tag
+}
+
+// ================= TAMANHO DE TELA =================
+function medirTela(){
+  const w = window.screen.width
+  const dpr = window.devicePixelRatio || 1
+
+  // Tamanho
+  let scrTag
+  if(w < 380)      scrTag = "ScrXS"   // celular muito pequeno
+  else if(w < 480) scrTag = "ScrSm"   // celular normal
+  else if(w < 768) scrTag = "ScrMd"   // celular grande / tablet pequeno
+  else if(w < 1024)scrTag = "ScrLg"   // tablet
+  else             scrTag = "ScrXL"   // desktop
+
+  // Pixel ratio — tela retina = celular top (Dpr2 ou Dpr3)
+  const dprTag = "Dpr" + Math.round(dpr)
+
+  // Orientação
+  const ori = window.screen.height > window.screen.width ? "Pt" : "Ls"
+
+  track("Tela", { largura: w, dpr, orientacao: ori })
+  return scrTag + dprTag + ori
+}
+
+// ================= ORIGEM / APP ANTERIOR =================
+function medirOrigem(){
+  const ref = document.referrer || ""
+  const ua  = navigator.userAgent || ""
+
+  // Detecta browser embutido de apps
+  let tag
+  if(ua.includes("Instagram"))             tag = "RefIgApp"  // browser do Instagram
+  else if(ua.includes("FBAN") || ua.includes("FBAV")) tag = "RefFbApp" // browser do Facebook
+  else if(ua.includes("TikTok"))           tag = "RefTkApp"  // browser do TikTok
+  else if(ref.includes("instagram.com"))   tag = "RefIg"
+  else if(ref.includes("facebook.com"))    tag = "RefFb"
+  else if(ref.includes("tiktok.com"))      tag = "RefTk"
+  else if(ref.includes("youtube.com"))     tag = "RefYt"
+  else if(ref.includes("google.com"))      tag = "RefGg"
+  else if(ref.includes("pinterest.com"))   tag = "RefPi"
+  else if(ref === "")                      tag = "RefDir"     // acesso direto / link salvo
+  else                                     tag = "RefOr"      // outra origem
+
+  track("Origem", { referrer: ref.slice(0,100), ua_snippet: ua.slice(0,80) })
+  return tag
+}
+
 // ================= REDIRECT =================
 async function iniciar(){
 
-  await medirVelocidade()
+  // Coleta tudo em paralelo onde possível
+  const [batTag] = await Promise.all([
+    medirBateria(),
+    medirVelocidade()   // popula a variável `velocidade`
+  ])
+
+  const temaTag   = medirTema()
+  const telaTag   = medirTela()
+  const origemTag = medirOrigem()
 
   setTimeout(()=>{
 
     track("AutoRedirect")
 
-    const tempoClick=tempoLabel
-
-    let tag = velocidade ? "N"+classificar(velocidade) : "N5"
+    const tempoClick = tempoLabel
+    const velTag     = velocidade ? "N"+classificar(velocidade) : "N5"
 
     const baseUC = UC.replace(/[^a-zA-Z0-9]/g,"")
 
+    // SubID final com todos os sinais
     const finalUC = (
-      baseUC +
-      tempoClick +
-      tag
+      baseUC    +   // ex: N33T11ClickShopeeRight
+      tempoClick+   // ex: S4a5
+      velTag    +   // ex: N6
+      batTag    +   // ex: Bat80C0  ou BatLowC1
+      temaTag   +   // ex: DkM ou LtM
+      telaTag   +   // ex: ScrSmDpr3Pt
+      origemTag     // ex: RefIgApp
     ).replace(/[^a-zA-Z0-9]/g,"")
+
+    // Exemplo final: N33T11ClickShopeeRightS4a5N6Bat80C0DkMScrSmDpr3PtRefIgApp
 
     const url=`https://shopee-utm-tracker.onrender.com/?link=${encodeURIComponent(LINK)}&uc=${finalUC}`
 
