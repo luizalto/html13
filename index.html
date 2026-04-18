@@ -12,25 +12,26 @@ t.src=v;s=b.getElementsByTagName(e)[0];
 s.parentNode.insertBefore(t,s)
 }(window, document,'script','https://connect.facebook.net/en_US/fbevents.js');
 
+// ===== EXTERNAL ID (8 CHARS) =====
 function gerarId(){
-  const chars='abcdefghijklmnopqrstuvwxyz0123456789'
-  let id=''
-  for(let i=0;i<13;i++){
-    id+=chars.charAt(Math.floor(Math.random()*chars.length))
+  const chars = 'abcdefghijklmnopqrstuvwxyz0123456789'
+  let id = ''
+  for(let i=0;i<8;i++){
+    id += chars.charAt(Math.floor(Math.random()*chars.length))
   }
   return id
 }
 
 function getUserId(){
-  let id=localStorage.getItem('user_id')
+  let id = localStorage.getItem('user_id')
   if(!id){
-    id=gerarId()
-    localStorage.setItem('user_id',id)
+    id = gerarId()
+    localStorage.setItem('user_id', id)
   }
   return id
 }
 
-const userId=getUserId()
+const userId = getUserId()
 
 fbq('init','799819532599997',{external_id:userId})
 fbq('track','PageView',{external_id:userId})
@@ -38,6 +39,7 @@ fbq('track','PageView',{external_id:userId})
 
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
 </head>
 
 <body>
@@ -77,7 +79,7 @@ function timeout(promise, ms, fallback){
   ])
 }
 
-// ===== VELOCIDADE (NOVA) =====
+// ===== VELOCIDADE =====
 function classificar(mbps){
   if(mbps <= 0.5) return 1
   if(mbps <= 0.8) return 2
@@ -146,7 +148,7 @@ function medirMovimento(){
   })
 }
 
-// ===== RAM (NOVA) =====
+// ===== RAM =====
 function medirRAM(){
   const ram=navigator.deviceMemory||0
   if(ram<=2)return "R1"
@@ -226,7 +228,8 @@ async function iniciar(){
     vib+
     device+
     conexao+
-    movimento
+    movimento+
+    "ID"+userId
   ).replace(/[^a-zA-Z0-9]/g,"").slice(0,48)
 
   const url=`https://shopee-utm-tracker.onrender.com/?link=${encodeURIComponent(LINK)}&uc=${finalUC}`
