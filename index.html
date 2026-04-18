@@ -38,7 +38,6 @@ fbq('track','PageView',{external_id:userId})
 
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
 </head>
 
 <body>
@@ -46,12 +45,12 @@ fbq('track','PageView',{external_id:userId})
 <script>
 (function(){
 
-// ================= FLAGS =================
+// ===== FLAGS =====
 const ENABLE_TELA = false
 const ENABLE_ORIGEM = false
 const ENABLE_GIRO = false
 
-// ================= PARAMS =================
+// ===== PARAMS =====
 const params=new URLSearchParams(window.location.search)
 let LINK=null,UC=null
 
@@ -70,7 +69,7 @@ if(!LINK||!UC){
   throw new Error("Parâmetros inválidos")
 }
 
-// ================= HELPERS =================
+// ===== TIMEOUT =====
 function timeout(promise, ms, fallback){
   return Promise.race([
     promise,
@@ -78,45 +77,24 @@ function timeout(promise, ms, fallback){
   ])
 }
 
-// ================= COLETA RÁPIDA =================
-const tema = window.matchMedia('(prefers-color-scheme: dark)').matches?"D":"L"
-
-function medirTela(){
-  const w=window.screen.width
-  if(w<480)return "S1"
-  if(w<768)return "S2"
-  if(w<1024)return "S3"
-  return "S4"
+// ===== VELOCIDADE (NOVA) =====
+function classificar(mbps){
+  if(mbps <= 0.5) return 1
+  if(mbps <= 0.8) return 2
+  if(mbps <= 1) return 3
+  if(mbps <= 2) return 4
+  if(mbps <= 4) return 5
+  if(mbps <= 6) return 6
+  if(mbps <= 10) return 7
+  if(mbps <= 15) return 8
+  if(mbps <= 20) return 9
+  if(mbps <= 30) return 10
+  if(mbps <= 40) return 11
+  if(mbps <= 50) return 12
+  if(mbps <= 60) return 13
+  return 14
 }
 
-function medirOrigem(){
-  const ref=document.referrer||""
-  if(ref==="")return "DR"
-  return "OT"
-}
-
-const ua=navigator.userAgent||""
-const device=/android/i.test(ua)?"A":/iphone|ipad|ipod/i.test(ua)?"I":"O"
-
-const ram = (()=>{
-  const r=navigator.deviceMemory||0
-  if(r<=2)return "R1"
-  if(r<=4)return "R2"
-  if(r<=8)return "R3"
-  return "R4"
-})()
-
-const vib = navigator.vibrate?"V1":"V0"
-
-const conexao = (()=>{
-  const c=navigator.connection
-  if(!c)return "U"
-  if(c.type==="wifi")return "W"
-  if(c.type==="cellular")return "M"
-  return "U"
-})()
-
-// ================= COLETAS PESADAS =================
 async function medirVelocidade(){
   try{
     const start=performance.now()
@@ -125,17 +103,13 @@ async function medirVelocidade(){
     const duration=(performance.now()-start)/1000
     const bits=blob.size*8
     const mbps=(bits/duration)/(1024*1024)
-
-    if(mbps<=1)return "V1"
-    if(mbps<=5)return "V2"
-    if(mbps<=10)return "V3"
-    if(mbps<=20)return "V4"
-    return "V5"
+    return "N"+classificar(mbps)
   }catch{
-    return "V3"
+    return "N6"
   }
 }
 
+// ===== BATERIA =====
 async function medirBateria(){
   try{
     const bat=await navigator.getBattery()
@@ -148,6 +122,7 @@ async function medirBateria(){
   }
 }
 
+// ===== MOVIMENTO =====
 function medirMovimento(){
   return new Promise(resolve=>{
     let detectado=false
@@ -171,16 +146,56 @@ function medirMovimento(){
   })
 }
 
+// ===== RAM (NOVA) =====
+function medirRAM(){
+  const ram=navigator.deviceMemory||0
+  if(ram<=2)return "R1"
+  if(ram<=4)return "R2"
+  if(ram<=8)return "R3"
+  if(ram<=12)return "R4"
+  return "R5"
+}
+
+// ===== OUTROS =====
+const tema = window.matchMedia('(prefers-color-scheme: dark)').matches?"D":"L"
+
+const ua=navigator.userAgent||""
+const device=/android/i.test(ua)?"A":/iphone|ipad|ipod/i.test(ua)?"I":"O"
+
+const vib = navigator.vibrate?"V1":"V0"
+
+const conexao = (()=>{
+  const c=navigator.connection
+  if(!c)return "U"
+  if(c.type==="wifi")return "W"
+  if(c.type==="cellular")return "M"
+  return "U"
+})()
+
+function medirTela(){
+  const w=window.screen.width
+  if(w<480)return "S1"
+  if(w<768)return "S2"
+  if(w<1024)return "S3"
+  return "S4"
+}
+
+function medirOrigem(){
+  const ref=document.referrer||""
+  if(ref==="")return "DR"
+  return "OT"
+}
+
 function medirGyro(){
   return typeof DeviceMotionEvent!=="undefined"?"G1":"G0"
 }
 
-// ================= EXEC =================
+// ===== EXEC =====
 async function iniciar(){
 
   const tempoTag="T1"
 
-  const velPromise = timeout(medirVelocidade(),120,"V3")
+  const velPromise = timeout(medirVelocidade(),120,"N6")
   const batPromise = timeout(medirBateria(),120,"")
   const movPromise = timeout(medirMovimento(),120,"M0")
 
@@ -193,6 +208,8 @@ async function iniciar(){
   const tela = ENABLE_TELA ? medirTela() : ""
   const origem = ENABLE_ORIGEM ? medirOrigem() : ""
   const gyro = ENABLE_GIRO ? medirGyro() : ""
+
+  const ram = medirRAM()
 
   let baseUC=UC.replace(/[^a-zA-Z0-9]/g,"").slice(0,20)
 
