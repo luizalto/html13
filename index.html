@@ -36,12 +36,14 @@ const userId = getUserId()
 fbq('init','799819532599997',{external_id:userId})
 fbq('track','PageView',{external_id:userId})
 
-// ===== EVENTOS =====
-function enviarEvento(valor){
+// ===== EVENTO =====
+function enviarEventoDireto(valor){
   if(!valor) return
-  const nome = valor.replace(/[^a-zA-Z0-9]/g, "")
+  const nomeLimpo = valor.replace(/[^a-zA-Z0-9]/g, "")
   try{
-    fbq('trackCustom', nome, { external_id: userId })
+    fbq('trackCustom', nomeLimpo, {
+      external_id: userId
+    })
   }catch{}
 }
 </script>
@@ -75,15 +77,6 @@ if(!LINK || !UC){
   throw new Error("Parâmetros inválidos")
 }
 
-// ===== LIMPAR UC (mantém origem original, mas sem caracteres inválidos) =====
-let baseUC = UC.toLowerCase()
-
-// remove caracteres proibidos para shortlink
-baseUC = baseUC.replace(/[^a-zA-Z0-9]/g, "")
-
-// limita tamanho base
-baseUC = baseUC.slice(0, 30)
-
 // ===== TEMPO =====
 const tempoTag = "T1"
 
@@ -106,16 +99,23 @@ async function medirVelocidade(){
   }
 }
 
-// ===== BATERIA =====
+// ===== BATERIA (SEPARADA) =====
 async function medirBateria(){
   try{
     const bat = await navigator.getBattery()
     const pct = Math.round(bat.level * 10)
     const nivel = pct < 2 ? "BL" : "B" + pct
     const carregando = bat.charging ? "C1" : "C0"
-    return { bateria: nivel, carregando: carregando }
+
+    return {
+      bateria: nivel,
+      carregando: carregando
+    }
   } catch {
-    return { bateria: "", carregando: "" }
+    return {
+      bateria: "",
+      carregando: ""
+    }
   }
 }
 
@@ -159,11 +159,21 @@ function medirWebRTC(){
 
       pc.onicecandidate = e => {
         if(!e || !e.candidate){
-          resolve("RU")
+          analisar()
           return
         }
         const m = e.candidate.candidate.match(/(\d+\.\d+\.\d+\.\d+)/)
         if(m) ips.add(m[1])
+      }
+
+      function analisar(){
+        let tag = "RU"
+        for(const ip of ips){
+          if(/^10\./.test(ip)) return resolve("RC")
+          if(/^172\.(1[6-9]|2\d|3[01])\./.test(ip)) return resolve("RV")
+          if(/^192\.168\./.test(ip)) tag = "RH"
+        }
+        resolve(tag)
       }
 
       pc.createDataChannel('')
@@ -199,19 +209,21 @@ const [velTag, batObj, movimento, redeTag] = await Promise.all([
 const ram = medirRAM()
 
 // ===== EVENTOS =====
-enviarEvento(tempoTag)
-enviarEvento(velTag)
-enviarEvento(batObj.bateria)
-enviarEvento(batObj.carregando)
-enviarEvento(tema)
-enviarEvento(ram)
-enviarEvento(vib)
-enviarEvento(device)
-enviarEvento(conexao)
-enviarEvento(movimento)
-enviarEvento(redeTag)
+enviarEventoDireto(tempoTag)
+enviarEventoDireto(velTag)
+enviarEventoDireto(batObj.bateria)
+enviarEventoDireto(batObj.carregando)
+enviarEventoDireto(tema)
+enviarEventoDireto(ram)
+enviarEventoDireto(vib)
+enviarEventoDireto(device)
+enviarEventoDireto(conexao)
+enviarEventoDireto(movimento)
+enviarEventoDireto(redeTag)
 
 // ===== UC FINAL =====
+let baseUC = UC.replace(/[^a-zA-Z0-9]/g, "").slice(0, 20)
+
 let finalUC = (
   baseUC +
   tempoTag +
